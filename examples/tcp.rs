@@ -7,7 +7,7 @@ use microasync::sync;
 use microasync_util::{
     get_current_runtime,
     io::{read::tcpstream::accept, ReadAsync},
-    QueuedRuntime, wait_ms,
+    wait_ms, QueuedRuntime,
 };
 
 fn main() {

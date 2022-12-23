@@ -1,5 +1,5 @@
 use microasync::sync;
-use microasync_util::{QueuedRuntime, wait_ms, get_current_runtime};
+use microasync_util::{get_current_runtime, wait_ms, QueuedRuntime};
 
 fn main() {
     let mut runtime = QueuedRuntime::new();
@@ -10,5 +10,7 @@ fn main() {
 async fn print_something_after_ms(ms: u64) {
     wait_ms(ms).await;
     println!("something after {ms}ms! :D");
-    get_current_runtime().await.push(print_something_after_ms(ms + 1));
+    get_current_runtime()
+        .await
+        .push(print_something_after_ms(ms + 1));
 }
