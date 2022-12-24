@@ -16,7 +16,7 @@ impl Future for Timer {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if self.start.elapsed().unwrap_or_else(|_| self.length) >= self.length {
+        if self.start.elapsed().unwrap_or(self.length) >= self.length {
             Poll::Ready(())
         } else {
             Poll::Pending
