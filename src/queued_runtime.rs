@@ -87,11 +87,12 @@ impl Future for QueuedRuntime {
         // exclusive.
         loop {
             let mut q = me.queue.borrow_mut();
-            let Some(mut future) = q.pop_front() else { break };
+            let Some(mut future) = q.pop_front() else { break; };
             mem::drop(q);
             if future.as_mut().poll(cx).is_pending() {
                 me.queue.borrow_mut().push_back(future);
             }
+            break;
         }
         #[cfg(feature = "no_std")]
         {
