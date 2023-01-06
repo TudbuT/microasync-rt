@@ -82,6 +82,8 @@ impl Future for QueuedRuntime {
         {
             CURRENT_RUNTIME.with(|x| *x.borrow_mut() = me as *mut _);
         }
+        let mut all_pending = true;
+        let mut i = 0;
         // SAFETY: The queue *must* only be accessed from the thread that is executing the runtime,
         // because the runtime does not implement Send. This makes these borrows necessarily
         // exclusive.
@@ -92,7 +94,14 @@ impl Future for QueuedRuntime {
             if future.as_mut().poll(cx).is_pending() {
                 me.queue.borrow_mut().push_back(future);
             }
-            break Poll::Pending;
+            else {
+                all_pending = false;
+            }
+            i += 1;
+            // if queue was traversed with no progress made, stop
+            if all_pending && i >= me.queue.borrow().len() {
+                break Poll::Pending;
+            }
         };
         #[cfg(feature = "no_std")]
         {
