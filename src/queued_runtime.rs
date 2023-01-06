@@ -114,8 +114,11 @@ impl Future for QueuedRuntime {
             }
             i += 1;
             // if queue was traversed with no progress made, stop
-            if all_pending && i >= me.queue.borrow().len() {
-                break Poll::Pending;
+            if i >= me.queue.borrow().len() {
+                if all_pending {
+                    break Poll::Pending;
+                }
+                all_pending = true;
             }
         };
         #[cfg(feature = "no_std")]
