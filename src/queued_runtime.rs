@@ -39,12 +39,27 @@ pub struct QueuedRuntime {
 }
 
 impl QueuedRuntime {
-    /// Creates a new, empty QueuedRuntime. Awaiting this does nothing until futures are pushed to
+    /// Creates a new, empty QueuedRuntime. Awaiting this does nothing unless futures are pushed to
     /// it.
     pub fn new() -> Self {
         Self {
             queue: RefCell::new(VecDeque::new()),
         }
+    }
+
+    /// Creates a new QueuedRuntime. Unlike new(), this adds a single future immediately, so
+    /// awaiting this will have an effect.
+    pub fn new_with_boxed(future: BoxFuture<'static, ()>) -> Self {
+        let mut r = Self::new();
+        r.push_boxed(future);
+        r
+    }
+    /// Creates a new QueuedRuntime. Unlike new(), this adds a single future immediately, so
+    /// awaiting this will have an effect.
+    pub fn new_with(future: impl Future<Output = ()> + 'static) -> Self {
+        let mut r = Self::new();
+        r.push(future);
+        r
     }
 
     /// Adds a new future to the queue to be completed.
