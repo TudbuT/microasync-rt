@@ -4,10 +4,10 @@ use std::{
 };
 
 use microasync::sync;
-use microasync_util::{
+use microasync_rt::{
     get_current_runtime,
     io::{read::tcpstream::accept, ReadAsync},
-    wait_ms, QueuedRuntime,
+    wait_ms, QueuedRuntime, Runtime,
 };
 
 fn main() {

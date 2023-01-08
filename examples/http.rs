@@ -1,7 +1,7 @@
 use std::{net::TcpStream, time::SystemTime};
 
 use microasync::{join, sync};
-use microasync_util::{
+use microasync_rt::{
     io::{ReadAsync, WriteAsync},
     wait_ms,
 };

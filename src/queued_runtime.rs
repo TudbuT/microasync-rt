@@ -3,39 +3,19 @@ extern crate alloc;
 extern crate std;
 
 use core::mem;
-use core::ops::Deref;
-use core::ptr::null_mut;
+use core::time::Duration;
 use core::{cell::RefCell, future::Future, pin::Pin, task::Poll};
 
 use alloc::collections::VecDeque;
-use microasync::{prep, BoxFuture};
 
-struct ForceSync<T>(T);
-
-unsafe impl<T> Send for ForceSync<T> {}
-unsafe impl<T> Sync for ForceSync<T> {}
-impl<T> Deref for ForceSync<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-#[cfg(feature = "no_std")]
-// SAFETY: We can ForceSync this because we assume no_std means we won't do threading.
-static CURRENT_RUNTIME: ForceSync<RefCell<*mut QueuedRuntime>> =
-    ForceSync(RefCell::new(null_mut()));
-
-#[cfg(not(feature = "no_std"))]
-std::thread_local! {
-    static CURRENT_RUNTIME: RefCell<*mut QueuedRuntime> = RefCell::new(null_mut());
-}
+use async_core::*;
+use microasync::prep;
 
 /// A very small async runtime, with support for adding more tasks as it runs. This uses a VecDeque
 /// internally.
 pub struct QueuedRuntime {
-    queue: RefCell<VecDeque<BoxFuture<'static, ()>>>,
+    queue: RefCell<VecDeque<(BoxFuture<'static, ()>, u64)>>,
+    counter: u64,
 }
 
 impl QueuedRuntime {
@@ -44,6 +24,7 @@ impl QueuedRuntime {
     pub fn new() -> Self {
         Self {
             queue: RefCell::new(VecDeque::new()),
+            counter: 0,
         }
     }
 
@@ -51,7 +32,7 @@ impl QueuedRuntime {
     /// awaiting this will have an effect.
     pub fn new_with_boxed(future: BoxFuture<'static, ()>) -> Self {
         let mut r = Self::new();
-        r.push_boxed(future);
+        Runtime::push_boxed(&mut r, future);
         r
     }
     /// Creates a new QueuedRuntime. Unlike new(), this adds a single future immediately, so
@@ -60,18 +41,6 @@ impl QueuedRuntime {
         let mut r = Self::new();
         r.push(future);
         r
-    }
-
-    /// Adds a new future to the queue to be completed.
-    pub fn push_boxed(&mut self, future: BoxFuture<'static, ()>) -> &mut Self {
-        self.queue.borrow_mut().push_back(future);
-        self
-    }
-
-    /// Adds a new future to the queue to be completed.
-    pub fn push(&mut self, future: impl Future<Output = ()> + 'static) -> &mut Self {
-        self.queue.borrow_mut().push_back(prep(future));
-        self
     }
 }
 
@@ -89,14 +58,10 @@ impl Future for QueuedRuntime {
         cx: &mut core::task::Context<'_>,
     ) -> core::task::Poll<Self::Output> {
         let me = self.get_mut();
-        #[cfg(feature = "no_std")]
-        {
-            *CURRENT_RUNTIME.borrow_mut() = me as *mut _;
+        if me.counter == u64::MAX {
+            return Poll::Ready(());
         }
-        #[cfg(not(feature = "no_std"))]
-        {
-            CURRENT_RUNTIME.with(|x| *x.borrow_mut() = me as *mut _);
-        }
+        set_current_runtime(me);
         let mut all_pending = true;
         let mut i = 0;
         // SAFETY: The queue *must* only be accessed from the thread that is executing the runtime,
@@ -106,11 +71,13 @@ impl Future for QueuedRuntime {
             let mut q = me.queue.borrow_mut();
             let Some(mut future) = q.pop_front() else { break Poll::Ready(()) };
             mem::drop(q);
-            if future.as_mut().poll(cx).is_pending() {
+            if future.0.as_mut().poll(cx).is_pending() {
                 me.queue.borrow_mut().push_back(future);
-            }
-            else {
+            } else {
                 all_pending = false;
+            }
+            if me.counter == u64::MAX {
+                break Poll::Ready(());
             }
             i += 1;
             // if queue was traversed with no progress made, stop
@@ -121,45 +88,30 @@ impl Future for QueuedRuntime {
                 all_pending = true;
             }
         };
-        #[cfg(feature = "no_std")]
-        {
-            *CURRENT_RUNTIME.borrow_mut() = null_mut();
-        }
-        #[cfg(not(feature = "no_std"))]
-        {
-            CURRENT_RUNTIME.with(|x| *x.borrow_mut() = null_mut());
-        }
+        clear_current_runtime();
         r
     }
 }
 
-#[cfg(feature = "no_std")]
-/// This assumes a single-threaded environment. Attempting to use this in a multi-threaded
-/// environment is highly unsafe and should NEVER be done.
-pub async fn get_current_runtime<'a>() -> &'a mut QueuedRuntime {
-    let it = CURRENT_RUNTIME.borrow();
-    // SAFETY: CURRENT_RUNTIME *MUST* be set to null when QueuedRuntime finishes a poll, so it
-    // *cannot* be freed while this is non-null
-    unsafe {
-        if let Some(x) = it.as_mut() {
-            x
-        } else {
-            panic!("get_current_runtime MUST only be called from a future running within a QueuedRuntime!")
+impl InternalRuntime for QueuedRuntime {
+    fn push_boxed(&mut self, future: BoxFuture<'static, ()>) -> u64 {
+        if self.counter == u64::MAX {
+            return self.counter;
         }
+        self.counter += 1;
+        self.queue.borrow_mut().push_back((future, self.counter));
+        self.counter
     }
-}
 
-#[cfg(not(feature = "no_std"))]
-/// This gets the currently running runtime. PANICS IF IT IS CALLED FROM OUTSIDE THE RUNTIME.
-pub async fn get_current_runtime<'a>() -> &'a mut QueuedRuntime {
-    let it = CURRENT_RUNTIME.with(|x| *x.borrow());
-    // SAFETY: CURRENT_RUNTIME *MUST* be set to null when QueuedRuntime finishes a poll, so it
-    // *cannot* be freed while this is non-null
-    unsafe {
-        if let Some(x) = it.as_mut() {
-            x
-        } else {
-            panic!("get_current_runtime MUST only be called from a future running within a QueuedRuntime!")
-        }
+    fn contains(&self, id: u64) -> bool {
+        self.queue.borrow().iter().any(|x| x.1 == id)
+    }
+
+    fn sleep<'b>(&self, duration: Duration) -> BoxFuture<'b, ()> {
+        prep(crate::wait(duration))
+    }
+
+    fn stop(&mut self) {
+        self.counter = u64::MAX;
     }
 }

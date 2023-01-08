@@ -1,14 +1,15 @@
 [package]
-name = "microasync-util"
-version = "0.1.6"
+name = "microasync-rt"
+version = "0.2.0"
 edition = "2021"
-repository = "https://github.com/tudbut/microasync-util"
+repository = "https://github.com/tudbut/microasync-rt"
 license = "MIT"
-description = "Utilities for the very small async runner"
+description = "A runtime for the very small async runner"
 categories = ["no-std", "embedded"]
 
 [dependencies]
 microasync = "0.4"
+async-core = { path = "../standardized-async" }
 
 [features]
-no_std = ["microasync/no_std"]
+no_std = ["microasync/no_std", "async-core/no_std"]

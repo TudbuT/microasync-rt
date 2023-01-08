@@ -1,5 +1,5 @@
 use microasync::sync;
-use microasync_util::{wait_ms, QueuedRuntime};
+use microasync_rt::{wait_ms, QueuedRuntime, Runtime};
 
 fn main() {
     let mut runtime = QueuedRuntime::new();

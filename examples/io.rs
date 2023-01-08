@@ -1,5 +1,5 @@
 use microasync::sync;
-use microasync_util::io::ReadAsync;
+use microasync_rt::io::ReadAsync;
 use std::{
     fs::File,
     io::{self, Seek, SeekFrom},
