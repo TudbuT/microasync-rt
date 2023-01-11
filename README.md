@@ -1,4 +1,4 @@
-# microasync-util
+# microasync-rt
 
 [MicroAsync](https://crates.io/crates/microasync)
 ([GitHub](https://github.com/tudbut/microasync)) does not have many features, no IO
@@ -15,7 +15,7 @@ is awaited!
 
 ```rs
 use microasync::sync;
-use microasync_util::{QueuedRuntime, wait_ms};
+use microasync_rt::{QueuedRuntime, wait_ms};
 
 fn main() {
     let mut runtime = QueuedRuntime::new();
@@ -33,7 +33,7 @@ async fn print_something_after_ms(ms: u64) {
 
 ```rs
 use microasync::sync;
-use microasync_util::{QueuedRuntime, wait_ms, get_current_runtime};
+use microasync_rt::{QueuedRuntime, wait_ms, get_current_runtime};
 
 fn main() {
     let mut runtime = QueuedRuntime::new();
