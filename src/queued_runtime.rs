@@ -86,6 +86,7 @@ impl Future for QueuedRuntime {
                     break Poll::Pending;
                 }
                 all_pending = true;
+                i = 0;
             }
         };
         clear_current_runtime();

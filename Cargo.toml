@@ -9,7 +9,7 @@ categories = ["no-std", "embedded"]
 
 [dependencies]
 microasync = "0.4"
-async-core = { path = "../standardized-async" }
+async-core = { path = "../async-core" }
 
 [features]
 no_std = ["microasync/no_std", "async-core/no_std"]
