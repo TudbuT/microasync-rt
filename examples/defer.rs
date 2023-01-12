@@ -15,8 +15,8 @@ fn main() {
 
 async fn is_alive() {
     println!(
-        "The runtime is NOT blocked by the test() function: This future runs *after* the poll\
-        to the test() function, so if this runs before test() is done, that means test() returned\
+        "The runtime is NOT blocked by the test() function: This future runs *after* the poll \
+        to the test() function, so if this runs before test() is done, that means test() returned \
         Poll::Pending and is not blocking."
     );
 }

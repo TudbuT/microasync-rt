@@ -22,5 +22,5 @@ async fn read(mut f: File) -> Result<String, io::Error> {
         n += f.read(&mut buf).await?;
         v.push_str(buf.iter().map(|x| *x as char).collect::<String>().as_str());
     }
-    Ok(v)
+    Ok(v[..n].to_owned())
 }

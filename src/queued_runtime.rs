@@ -6,10 +6,10 @@ use core::mem;
 use core::time::Duration;
 use core::{cell::RefCell, future::Future, pin::Pin, task::Poll};
 
+use alloc::boxed::Box;
 use alloc::collections::VecDeque;
 
 use async_core::*;
-use microasync::prep;
 
 /// A very small async runtime, with support for adding more tasks as it runs. This uses a VecDeque
 /// internally.
@@ -104,15 +104,16 @@ impl InternalRuntime for QueuedRuntime {
         self.counter
     }
 
-    fn contains(&self, id: u64) -> bool {
+    fn contains(&mut self, id: u64) -> bool {
         self.queue.borrow().iter().any(|x| x.1 == id)
     }
 
     fn sleep<'b>(&self, duration: Duration) -> BoxFuture<'b, ()> {
-        prep(crate::wait(duration))
+        Box::pin(crate::wait(duration))
     }
 
-    fn stop(&mut self) {
+    fn stop(&mut self) -> Stop {
         self.counter = u64::MAX;
+        Stop
     }
 }
